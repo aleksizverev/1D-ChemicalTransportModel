@@ -13,6 +13,8 @@
 
 program main
 
+use meteorology_mod
+
 implicit none
 
 !-----------------------------------------------------------------------------------------
@@ -99,9 +101,9 @@ integer :: counter  ! [-], counter of time steps
 !-----------------------------------------------------------------------------------------
 ! Meteorology variables
 !-----------------------------------------------------------------------------------------
-real(dp), dimension(nz  ) :: uwind, uwind_tmp, &  ! [m s-1], u component of wind
-                             vwind, vwind_tmp, &  ! [m s-1], v component of wind
-                             theta, theta_tmp     ! [K], potential temperature
+real(dp), dimension(nz  ) :: uwind, &  ! [m s-1], u component of wind
+                             vwind, &  ! [m s-1], v component of wind
+                             theta     ! [K], potential temperature
 real(dp), dimension(nz  ) :: temp, &   ! [K], air temperature
                              pres      ! [Pa], air pressure
 
@@ -130,24 +132,7 @@ do while (time <= time_end)
   call surface_values(theta(1), time+dt)  ! theta = temperature at the surface
 
   ! Update meteorology
-
-  do i = 2, nz-1
-    uwind_tmp(i) = uwind(i) + dt*(fcor*(vwind(i)-vg) + (5 * (uwind(i+1) - uwind(i))/(hh(i+1) - hh(i)) - & 
-                                                      5 * (uwind(i) - uwind(i-1))/(hh(i) - hh(i-1))) / & 
-                                                      ((hh(i+1)-hh(i-1))*0.5))
-
-    vwind_tmp(i) = vwind(i) + dt*(-fcor*(uwind(i)-ug) + (5 * (vwind(i+1) - vwind(i))/(hh(i+1) - hh(i)) - & 
-                                                       5 * (vwind(i) - vwind(i-1))/(hh(i) - hh(i-1))) / & 
-                                                       ((hh(i+1)-hh(i-1))*0.5))
-
-    theta_tmp(i) =  theta(i)  +   dt*(5 * (theta(i+1) - theta(i))/(hh(i+1) - hh(i)) - & 
-                              5 * (theta(i) - theta(i-1))/(hh(i) - hh(i-1))) / & 
-                              ((hh(i+1)-hh(i-1))*0.5)
-  end do
-
-  uwind = uwind_tmp
-  vwind = vwind_tmp
-  theta = theta_tmp
+  call updateParametersK1(uwind, vwind, theta, hh, dt, ug, vg, fcor)
 
   !---------------------------------------------------------------------------------------
   ! Emission
@@ -360,21 +345,15 @@ end subroutine time_init
 subroutine meteorology_init()
   ! Wind velocity
   uwind         = 0.0d0
-  uwind_tmp     = 0.0d0
   uwind(nz)     = ug
-  uwind_tmp(nz) = ug
   uwind(2:nz-1) = uwind(nz) * hh(2:nz-1)/hh(nz)
 
   vwind         = 0.0d0
-  vwind_tmp     = 0.0d0
   vwind(nz)     = vg
-  vwind_tmp(nz) = vg
 
   ! Potential temperature
   theta     = 273.15d0 + 25.0d0
   theta(nz) = 273.15d0 + 30.0d0
-  theta_tmp     = 273.15d0 + 25.0d0
-  theta_tmp(nz) = 273.15d0 + 30.0d0
 
   ! Air temperature and pressure
   temp = theta - (grav/Cp)*hh

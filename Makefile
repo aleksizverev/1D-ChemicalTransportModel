@@ -1,7 +1,7 @@
 F90    = gfortran
 FFLAGS = -O0 -g -ffpe-trap=invalid,zero,overflow -ffree-line-length-none
 
-OBJS = main.o
+OBJS = meteorology_mod.o main.o
 EXE  = main.exe
 
 all: $(EXE)
