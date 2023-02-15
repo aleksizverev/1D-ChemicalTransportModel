@@ -37,6 +37,7 @@ contains
 
     end subroutine updateParametersK1
 
+
     subroutine updateParametersK2(uwind, vwind, theta, hh, dt, ug, vg, fcor, lambda, vonk, K)
         
         real(dp), dimension(nz) ::  hh
@@ -79,7 +80,5 @@ contains
         theta = theta_tmp
 
     end subroutine updateParametersK2
-
-
-    ! TODO: Count equations in diff subroutine
+    
 end module meteorology_mod
