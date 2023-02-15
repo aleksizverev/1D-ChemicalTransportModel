@@ -106,7 +106,7 @@ real(dp), dimension(nz  ) :: uwind, &  ! [m s-1], u component of wind
                              theta     ! [K], potential temperature
 real(dp), dimension(nz  ) :: temp, &   ! [K], air temperature
                              pres      ! [Pa], air pressure
-real(dp), dimension(nz-1  ) :: K
+real(dp), dimension(nz-1  ) :: K, K_m, K_h
 
 integer :: i, j  ! used for loops
 
@@ -134,7 +134,8 @@ do while (time <= time_end)
 
   ! Update meteorology
   ! call updateParametersK1(uwind, vwind, theta, hh, dt, ug, vg, fcor)
-  call updateParametersK2(uwind, vwind, theta, hh, dt, ug, vg, fcor, lambda, vonk, K)
+  ! call updateParametersK2(uwind, vwind, theta, hh, dt, ug, vg, fcor, lambda, vonk, K)
+  call updateParametersK3(uwind, vwind, theta, hh, dt, ug, vg, fcor, lambda, vonk, K_m, K_h)
 
   !---------------------------------------------------------------------------------------
   ! Emission
@@ -357,7 +358,8 @@ subroutine meteorology_init()
   vwind(nz)     = vg
 
   K = 0.0d0
-  ! K(2:nz-1) = vonk*hh(2:nz-1)/(1+vonk*hh(2:nz-1)/lambda) * (uwind(3:nz)-uwind(2:nz-1))/(hh(3:nz)-hh(2:nz-1))
+  K_m = 0.0d0
+  K_h = 0.0d0
 
   ! Potential temperature
   theta     = 273.15d0 + 25.0d0
