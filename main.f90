@@ -106,6 +106,7 @@ real(dp), dimension(nz  ) :: uwind, &  ! [m s-1], u component of wind
                              theta     ! [K], potential temperature
 real(dp), dimension(nz  ) :: temp, &   ! [K], air temperature
                              pres      ! [Pa], air pressure
+real(dp), dimension(nz-1  ) :: K
 
 integer :: i, j  ! used for loops
 
@@ -132,7 +133,8 @@ do while (time <= time_end)
   call surface_values(theta(1), time+dt)  ! theta = temperature at the surface
 
   ! Update meteorology
-  call updateParametersK1(uwind, vwind, theta, hh, dt, ug, vg, fcor)
+  ! call updateParametersK1(uwind, vwind, theta, hh, dt, ug, vg, fcor)
+  call updateParametersK2(uwind, vwind, theta, hh, dt, ug, vg, fcor, lambda, vonk, K)
 
   !---------------------------------------------------------------------------------------
   ! Emission
@@ -258,6 +260,7 @@ subroutine open_files()
   open(10,file=trim(adjustl(output_dir))//'/uwind.dat',status='replace',action='write')
   open(11,file=trim(adjustl(output_dir))//'/vwind.dat',status='replace',action='write')
   open(12,file=trim(adjustl(output_dir))//'/theta.dat',status='replace',action='write')
+  open(13,file=trim(adjustl(output_dir))//'/K.dat',status='replace',action='write')
 end subroutine open_files
 
 
@@ -286,6 +289,7 @@ subroutine write_files(time)
   write(10, outfmt_level     ) uwind
   write(11, outfmt_level     ) vwind
   write(12, outfmt_level     ) theta
+  write(13, outfmt_level     ) K
 end subroutine write_files
 
 
@@ -300,6 +304,7 @@ subroutine close_files()
   close(10)
   close(11)
   close(12)
+  close(13)
 end subroutine close_files
 
 
@@ -350,6 +355,9 @@ subroutine meteorology_init()
 
   vwind         = 0.0d0
   vwind(nz)     = vg
+
+  K = 0.0d0
+  ! K(2:nz-1) = vonk*hh(2:nz-1)/(1+vonk*hh(2:nz-1)/lambda) * (uwind(3:nz)-uwind(2:nz-1))/(hh(3:nz)-hh(2:nz-1))
 
   ! Potential temperature
   theta     = 273.15d0 + 25.0d0
