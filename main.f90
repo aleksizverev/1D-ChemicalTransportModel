@@ -82,7 +82,7 @@ real(dp) :: time                  ! [s], current time
 real(dp) :: time_start, time_end  ! [s], start and end time
 
 real(dp) :: dt         ! [s], time step for main loop, usually is equal to meteorology time step
-real(dp) :: dt_emis    ! [s], time step for emission calculation
+real(dp) :: dt_emis, em_t    ! [s], time step for emission calculation
 real(dp) :: dt_chem    ! [s], time step for chemistry calculation
 real(dp) :: dt_depo    ! [s], time step for deposition calculation
 real(dp) :: dt_aero    ! [s], time step for aerosol calculation
@@ -108,7 +108,13 @@ real(dp), dimension(nz  ) :: temp, &   ! [K], air temperature
                              pres      ! [Pa], air pressure
 real(dp), dimension(nz-1  ) :: K, K_m, K_h
 
-integer :: i, j  ! used for loops
+integer :: i ! j used for loops
+
+
+!-----------------------------------------------------------------------------------------
+! Emission variables
+!-----------------------------------------------------------------------------------------
+real(dp) :: F_monoterpene, F_isoprene, C_L, C_T
 
 
 !-----------------------------------------------------------------------------------------
@@ -142,9 +148,10 @@ do while (time <= time_end)
   !---------------------------------------------------------------------------------------
   ! Start to calculate emission after time_start_emission
   ! Compute emission part every dt_emis, multiplying 1000 to convert s to ms to make mod easier
+  temp = theta - (grav/Cp)*hh
   if ( use_emission .and. time >= time_start_emission ) then
     if ( mod( nint((time - time_start_emission)*1000.0d0), nint(dt_emis*1000.0d0) ) == 0 ) then
-      ! Calculate emission rates
+      call calculate_emmisions(F_monoterpene, F_isoprene, temp(2), C_L, C_T, time)
     end if
   end if
 
@@ -262,6 +269,10 @@ subroutine open_files()
   open(11,file=trim(adjustl(output_dir))//'/vwind.dat',status='replace',action='write')
   open(12,file=trim(adjustl(output_dir))//'/theta.dat',status='replace',action='write')
   open(13,file=trim(adjustl(output_dir))//'/K.dat',status='replace',action='write')
+  open(14,file=trim(adjustl(output_dir))//'/F_isoprene.dat',status='replace',action='write')
+  open(15,file=trim(adjustl(output_dir))//'/F_monoterpene.dat',status='replace',action='write')
+  open(16,file=trim(adjustl(output_dir))//'/C_L.dat',status='replace',action='write')
+  open(17,file=trim(adjustl(output_dir))//'/C_T.dat',status='replace',action='write')
 end subroutine open_files
 
 
@@ -291,6 +302,10 @@ subroutine write_files(time)
   write(11, outfmt_level     ) vwind
   write(12, outfmt_level     ) theta
   write(13, outfmt_level     ) K
+  write(14, outfmt_one_scalar) F_isoprene
+  write(15, outfmt_one_scalar) F_monoterpene
+  write(16, outfmt_one_scalar) C_L
+  write(17, outfmt_one_scalar) C_T
 end subroutine write_files
 
 
@@ -306,6 +321,10 @@ subroutine close_files()
   close(11)
   close(12)
   close(13)
+  close(14)
+  close(15)
+  close(16)
+  close(17)
 end subroutine close_files
 
 
@@ -416,6 +435,32 @@ subroutine surface_values(temperature, time)
 
 end subroutine surface_values
 
+
+subroutine calculate_emmisions(F_monoterpene, F_isoprene, T, C_L, C_T, em_t)
+  real(dp) :: F_monoterpene, F_isoprene, T, C_L, C_T, Q, exp_coszen, em_t
+  real(dp), parameter :: betha = 0.09_dp
+  real(dp), parameter :: T_s = 303.15_dp                  ! [Kelvin]
+  real(dp), parameter :: T_m = 314                        ! [Kelvin]
+  real(dp), parameter :: D_m = 0.0538_dp                  ! Foliar density [g/cm^2]
+  real(dp), parameter :: em_factor = 100.0_dp             ! Standart emission protential [ng/g/h]
+  real(dp), parameter :: alpha = 0.0027                
+  real(dp), parameter :: c_l1 = 1.006_dp                  
+  real(dp), parameter :: c_t1 = 1000*95.0_dp              ! [J/mol]
+  real(dp), parameter :: c_t2 = 1000*230.0_dp             ! [J/mol]
+
+
+  ! Calculating isoprene flux
+  exp_coszen = get_exp_coszen(em_t, daynumber, latitude)
+  Q = 1000.0 * exp_coszen
+  C_L = alpha * c_l1 * Q/sqrt(1 + alpha**(2) * Q**(2))
+  C_T = exp( (c_t1*(T-T_s))/(Rgas*T*T_s) ) /(1 + exp( (c_t2*(T-T_m))/(Rgas*T*T_s) ))
+
+  F_isoprene = D_m * em_factor * C_L * C_T * NA/68 * 1e-9 /3600 /1000
+  
+  ! Calculation monoterpene flux
+  F_monoterpene = D_m * em_factor * exp(betha*(T-T_s))  * NA/136 * 1e-9 /3600 /1000
+
+end subroutine calculate_emmisions
 
 !-----------------------------------------------------------------------------------------
 ! Calculate the radiation related quantities
