@@ -13,7 +13,9 @@
 
 program main
 
+use chemistry_mod
 use meteorology_mod
+
 
 implicit none
 
@@ -47,6 +49,7 @@ real(dp), parameter :: nu_air = 1.59e-5_dp                      ! [m2 s-1], kine
 real(dp), parameter :: Omega  = 2*PI/(24.0_dp*60.0_dp*60.0_dp)  ! [rad s-1], Earth angular speed
 real(dp), parameter :: lambda = 300.0_dp                        ! maximum mixing length, meters
 real(dp), parameter :: vonk   = 0.4_dp                          ! von Karman constant, dimensionless
+real(dp), parameter :: ppb = 1e-9_dp
 
 real(dp), parameter :: ug = 10.0d0, vg = 0.0d0  ! [m s-1], geostrophic wind
 
@@ -72,6 +75,15 @@ real(dp), parameter, dimension(nz) :: &
           2100, 2200, 2300, 2400, 2500, 2600, 2700, 2800, 2900, 3000 /)
 
 real(dp), parameter :: hc = 10.0_dp  ! [m], canopy height
+
+! Chemistry constants
+real(dp), dimension(neq, nz) :: cons !//TODO
+
+! Atmospheric oxygen, N2 and H2O are kept constant:
+real(dp), dimension(nz) :: Mair                                    ! Air molecules concentration [molecules/cm3]
+real(dp), dimension(nz) :: O2                                      ! Oxygen concentration [molecules/cm3]
+real(dp), dimension(nz) :: N2                                      ! Nitrogen concentration [molecules/cm3]
+real(dp), dimension(nz) :: H2O                                     ! Water molecules [molecules/cm3]
 
 !-----------------------------------------------------------------------------------------
 ! Time variables
@@ -108,14 +120,13 @@ real(dp), dimension(nz  ) :: temp, &   ! [K], air temperature
                              pres      ! [Pa], air pressure
 real(dp), dimension(nz-1  ) :: K, K_m, K_h
 
-integer :: i ! j used for loops
+integer :: i, j, layer !  used for loops
 
 
 !-----------------------------------------------------------------------------------------
 ! Emission variables
 !-----------------------------------------------------------------------------------------
 real(dp) :: F_monoterpene, F_isoprene, C_L, C_T
-
 
 !-----------------------------------------------------------------------------------------
 ! Initialization
@@ -127,6 +138,7 @@ call meteorology_init()          ! initialize meteorology
 call open_files()        ! open output files
 call write_files(time)   ! write initial values
 
+cons = 0.0d0
 
 !-----------------------------------------------------------------------------------------
 ! Start main loop
@@ -179,7 +191,43 @@ do while (time <= time_end)
   ! Compute chemistry part every dt_chem, multiplying 1000 to convert s to ms to make mod easier
   if ( use_chemistry .and. time >= time_start_chemistry ) then
     if ( mod( nint((time - time_start_chemistry)*1000.0d0), nint(dt_chem*1000.0d0) ) == 0 ) then
-      ! Solve chemical equations for each layer except boundaries
+
+      Mair = pres*NA / (Rgas*temp) * 1d-6 
+      O2   = 0.21d0*Mair                     ! Oxygen concentration [molecules/cm3]
+      N2   = 0.78d0*Mair                     ! Nitrogen concentration [molecules/cm3]
+      H2O  = 1.0D16                          ! Water molecules [molecules/cm3]
+      ! Initial state for concentrations
+      cons(1, :)  = 24.0d0   * Mair * ppb     ! O3 concentration
+      cons(5, :)  = 0.2d0    * Mair * ppb     ! NO2
+      cons(6, :)  = 0.07d0   * Mair * ppb     ! NO
+      cons(9, :)  = 100.0d0  * Mair * ppb     ! CO
+      cons(11, :) = 1759.0d0 * Mair * ppb     ! CH4
+      cons(20, :) = 0.5d0    * Mair * ppb     ! SO2
+
+      ! Solve chemical equations for each layer except boundaries //TODO 
+      do layer = 2, nz - 1
+
+        if (layer .GT. 2) then 
+          F_isoprene = 0.0_dp
+          F_monoterpene = 0.0_dp
+        end if
+
+        !  write(*, *) layer, F_isoprene, F_monoterpene
+
+        do i = 1,nz 
+          do j = 1,neq
+             if (cons(j,i) .LT. 0.0) then
+                cons(j,i) = 0.0_dp
+             endif
+            enddo
+          enddo
+
+        call chemistry_step(cons(1:neq, layer), time, time+dt, O2(layer), N2(layer), Mair(layer), &
+                            H2O(layer), temp(layer), get_exp_coszen(em_t, daynumber, latitude), &
+                            F_monoterpene , F_isoprene)
+        !  write(*, *) cons(23,layer)
+
+      end do
     end if  ! every dt_chem
   end if
 
@@ -273,6 +321,9 @@ subroutine open_files()
   open(15,file=trim(adjustl(output_dir))//'/F_monoterpene.dat',status='replace',action='write')
   open(16,file=trim(adjustl(output_dir))//'/C_L.dat',status='replace',action='write')
   open(17,file=trim(adjustl(output_dir))//'/C_T.dat',status='replace',action='write')
+  open(18,file=trim(adjustl(output_dir))//'/OH.dat',status='replace',action='write')
+  open(19,file=trim(adjustl(output_dir))//'/isoprene.dat',status='replace',action='write')
+  open(20,file=trim(adjustl(output_dir))//'/alphapinene.dat',status='replace',action='write')
 end subroutine open_files
 
 
@@ -306,6 +357,9 @@ subroutine write_files(time)
   write(15, outfmt_one_scalar) F_monoterpene
   write(16, outfmt_one_scalar) C_L
   write(17, outfmt_one_scalar) C_T
+  write(18, outfmt_level     ) cons(3, :)
+  write(19, outfmt_level     ) cons(13, :)
+  write(20, outfmt_level     ) cons(23, :)
 end subroutine write_files
 
 
@@ -325,6 +379,9 @@ subroutine close_files()
   close(15)
   close(16)
   close(17)
+  close(18)
+  close(19)
+  close(20)
 end subroutine close_files
 
 
