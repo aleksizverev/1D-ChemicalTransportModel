@@ -77,7 +77,7 @@ real(dp), parameter, dimension(nz) :: &
 real(dp), parameter :: hc = 10.0_dp  ! [m], canopy height
 
 ! Chemistry constants
-real(dp), dimension(neq, nz) :: cons !//TODO
+real(dp), dimension(neq, nz) :: cons, cons_tmp !//TODO
 
 ! Atmospheric oxygen, N2 and H2O are kept constant:
 real(dp), dimension(nz) :: Mair                                    ! Air molecules concentration [molecules/cm3]
@@ -139,6 +139,7 @@ call open_files()        ! open output files
 call write_files(time)   ! write initial values
 
 cons = 0.0d0
+cons_tmp = 0.0d0
 
 !-----------------------------------------------------------------------------------------
 ! Start main loop
@@ -220,12 +221,12 @@ do while (time <= time_end)
                 cons(j,i) = 0.0_dp
              endif
             enddo
-          enddo
+        enddo
 
-        call chemistry_step(cons(1:neq, layer), time, time+dt, O2(layer), N2(layer), Mair(layer), &
-                            H2O(layer), temp(layer), get_exp_coszen(em_t, daynumber, latitude), &
+        call chemistry_step(cons(1:neq, layer), time, time+dt_chem, O2(layer), N2(layer), Mair(layer), &
+                            H2O(layer), temp(layer), get_exp_coszen(time, daynumber, latitude), &
                             F_monoterpene , F_isoprene)
-        !  write(*, *) cons(23,layer)
+        ! write(*, *) cons(3,layer)
 
       end do
     end if  ! every dt_chem
@@ -235,10 +236,17 @@ do while (time <= time_end)
   ! Deposition should not be used alone because it calculates nothing in that case
   if (use_emission .or. use_chemistry) then
     ! Trick to make bottom flux zero
-
-    ! Concentrations can not be lower than 0
+    cons(1:neq,1) = cons(1:neq,2)
 
     ! Mixing of chemical species
+    do i = 2, nz-1
+      do j = 1, neq
+      cons_tmp(j, i) = cons(j, i)  +   dt*(K_h(i) * (cons(j, i+1) - cons(j, i))/(hh(i+1) - hh(i)) - & 
+                                             K_h(i-1) * (cons(j, i) - cons(j, i-1))/(hh(i) - hh(i-1))) / & 
+                                            ((hh(i+1)-hh(i-1))*0.5)
+      end do
+    end do 
+    cons = cons_tmp
 
     ! Set the constraints above again for output
   end if
@@ -324,6 +332,9 @@ subroutine open_files()
   open(18,file=trim(adjustl(output_dir))//'/OH.dat',status='replace',action='write')
   open(19,file=trim(adjustl(output_dir))//'/isoprene.dat',status='replace',action='write')
   open(20,file=trim(adjustl(output_dir))//'/alphapinene.dat',status='replace',action='write')
+  open(21,file=trim(adjustl(output_dir))//'/HO2.dat',status='replace',action='write')
+  open(22,file=trim(adjustl(output_dir))//'/H2SO4.dat',status='replace',action='write')
+  open(23,file=trim(adjustl(output_dir))//'/ELVOC.dat',status='replace',action='write')
 end subroutine open_files
 
 
@@ -360,6 +371,9 @@ subroutine write_files(time)
   write(18, outfmt_level     ) cons(3, :)
   write(19, outfmt_level     ) cons(13, :)
   write(20, outfmt_level     ) cons(23, :)
+  write(21, outfmt_level     ) cons(8, :)
+  write(22, outfmt_level     ) cons(21, :)
+  write(23, outfmt_level     ) cons(25, :)
 end subroutine write_files
 
 
@@ -382,6 +396,9 @@ subroutine close_files()
   close(18)
   close(19)
   close(20)
+  close(21)
+  close(22)
+  close(23)
 end subroutine close_files
 
 

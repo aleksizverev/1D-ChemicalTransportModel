@@ -64,7 +64,8 @@ subroutine chemistry_step(conc,time1,time2,O2_in,N2_in,M_in,H2O_in,TEMP_in,exp_c
   call calculate_k(exp_coszen, F_monoterpene , F_isoprene)
 
   call dlsode (f_lsode, neq, conc, time1b, time2, itol, rtol, atol, itask, &
-               istate, iopt, rwork, lrw, iwork, liw, dummy, mf)
+               istate, iopt, rwork, lrw, iwork, liw, dummy, mf)   
+               
 
 end subroutine chemistry_step
 
@@ -137,6 +138,7 @@ subroutine f_lsode(neq, time, conc, conc_dot)
                 k_rate(10)*conc(3)*conc(15) + k_rate(11)*conc(8)*conc(6) - k_rate(14)*conc(3)*conc(7) - &
                 k_rate(18)*conc(3)*conc(5) - k_rate(20)*conc(3)*conc(8) - k_rate(21)*conc(3)*conc(16) + &
                 k_rate(28)*conc(8)*conc(1) - k_rate(29)*conc(3)*conc(20) - k_rate(33)*conc(3)*conc(23)
+  ! write(*,*) conc_dot(3)
 
   ! 4 = REST
   conc_dot(4)  = 0.0d0
