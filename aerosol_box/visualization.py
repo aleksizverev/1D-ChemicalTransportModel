@@ -9,18 +9,23 @@ import matplotlib.pyplot as plt
 #----------------------------------------------------------------
 
 df_time = pd.read_csv('output/time.dat')
+df_diam = pd.read_csv('output/diameter.dat')
 
 plt.figure(1)
 df_PN = pd.read_csv('output/PN.dat')
-ax1 = plt.subplot(211)
+ax1 = plt.subplot(311)
 ax1.plot(df_time, df_PN)
 ax1.set_ylabel('Total PN (cm^-3)')
 
 
 df_PV = pd.read_csv('output/PV.dat', delimiter='\s+')
-ax2 = plt.subplot(212)
+ax2 = plt.subplot(312)
 ax2.plot(df_time, df_PV)
 ax2.set_ylabel('PV (mu*m^3/cm^3)')
+
+# ax3 = plt.subplot(313)
+# ax3.plot(df_diam, df_PN)
+# ax3.set_ylabel('\delta N (cm^-3)')
 
 
 # plt.figure(2)

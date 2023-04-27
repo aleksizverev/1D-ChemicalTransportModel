@@ -4,11 +4,11 @@ IMPLICIT NONE
 
 PRIVATE
 
-PUBLIC :: pi
-PUBLIC :: dp, cond_vapour, diameter, particle_mass, particle_volume, particle_conc, &
+! PUBLIC :: pi
+PUBLIC :: cond_vapour, diameter, particle_mass, particle_volume, particle_conc, &
           particle_density, nucleation_coef, molecular_mass, molar_mass, &
           molecular_volume, molecular_dia, mass_accomm, &
-          PN, PM, PV
+          PN, PM, PV, CS_H2SO4, CS_ELVOC
 PUBLIC :: Aerosol_init, Nucleation, Condensation, Coagulation, dry_dep_velocity
 
 !====================== Definition of variables =====================================================================!
@@ -26,6 +26,7 @@ REAL(dp), PARAMETER :: kb   = 1.381d-23      ! Boltzmann constant [(m2*kg)/(s2*K
 
 INTEGER, PARAMETER ::  nr_bins = 100           ! Number of particle size bins
 INTEGER, PARAMETER ::  nr_cond = 2             ! Number of condensable vapours
+integer, parameter ::  nz = 50  ! [-], number of height levels
 
 REAL(dp), DIMENSION(nr_bins) :: diameter       , &  ! Diameter of each size bin
                                 particle_mass  , &  ! mass of one particle in each size bin
@@ -42,7 +43,7 @@ REAL(dp), DIMENSION(nr_cond) :: molecular_mass  , &  ! molecular mass of the con
 
 REAL(dp), DIMENSION(nr_cond) :: Cond_sink = 1.0d-3  ! Assumed initial condensation sink of vapours [s^-1]
 
-REAL(dp) :: PN, PM, PV  ! Total particle number [# m-3] and mass concentration [kg m-3]
+REAL(dp), DIMENSION(nz) :: PN, PM, PV  ! Total particle number [# m-3] and mass concentration [kg m-3]
 
 REAL(dp) :: vd_SO2, vd_O3, vd_HNO3  ! [m s-1], dry deposition velocity of SO2, O3 & HNO3
 
@@ -51,6 +52,8 @@ REAL(dp) :: particle_density, &  ! [kg]
             mass_accomm          ! mass accomodation coefficient
 
 REAL(dp) :: nucleation_rate  ! [# m-3 s-1]
+
+REAL(dp) :: CS_H2SO4, CS_ELVOC
 
 CONTAINS
 
@@ -124,7 +127,7 @@ END SUBROUTINE Nucleation
 
 SUBROUTINE Condensation(timestep, temperature, pressure, mass_accomm, molecular_mass, &
                         molecular_volume, molar_mass, molecular_dia, particle_mass, particle_volume, &
-                        particle_conc, diameter, cond_vapour) ! Add more variables if you need it
+                        particle_conc, diameter, cond_vapour, CS_H2SO4, CS_ELVOC) ! Add more variables if you need it
 
   REAL(dp), DIMENSION(nr_bins), INTENT(IN) :: diameter, particle_mass
   REAL(dp), DIMENSION(nr_cond), INTENT(IN) :: molecular_mass, molecular_dia, &
@@ -147,6 +150,8 @@ SUBROUTINE Condensation(timestep, temperature, pressure, mass_accomm, molecular_
   REAL(dp), DIMENSION(nr_bins) :: FS_corr_H2SO4, FS_corr_ELVOC ! Fuchs Sutugin correction 
   REAL(dp), DIMENSION(nr_bins) :: CR_H2SO4, CR_ELVOC ! Collision rate [m^3/s]
   REAL(dp), DIMENSION(nr_bins) :: Kn_H2SO4, Kn_ELVOC ! Knudsen numbers for H2SO4 and ELVOC
+
+  REAL(dp) :: CS_H2SO4, CS_ELVOC
 
   REAL(dp) :: x1, x2
   INTEGER :: ind
@@ -185,6 +190,9 @@ SUBROUTINE Condensation(timestep, temperature, pressure, mass_accomm, molecular_
   
   particle_conc_new=0D0
   particle_conc_new(nr_bins)=particle_conc(nr_bins)
+
+  CS_H2SO4 = sum(particle_conc * CR_H2SO4)
+  CS_ELVOC = sum(particle_conc * CR_ELVOC)
 
   DO j = 1,nr_bins-1
 

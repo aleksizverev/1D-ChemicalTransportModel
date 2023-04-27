@@ -13,6 +13,7 @@
 
 program main
 
+use aerosol_mod
 use chemistry_mod
 use meteorology_mod
 
@@ -134,12 +135,16 @@ real(dp) :: F_monoterpene, F_isoprene, C_L, C_T
 
 call time_init()                 ! initialize time
 call meteorology_init()          ! initialize meteorology
-
+call Aerosol_init(diameter, particle_mass, particle_volume, particle_conc, &
+                  particle_density, nucleation_coef, molecular_mass, molar_mass, &
+                  molecular_volume, molecular_dia, mass_accomm)
 call open_files()        ! open output files
 call write_files(time)   ! write initial values
 
 cons = 0.0d0
 cons_tmp = 0.0d0
+CS_H2SO4 = 1d-3
+CS_ELVOC = 1d-3
 
 !-----------------------------------------------------------------------------------------
 ! Start main loop
@@ -213,8 +218,6 @@ do while (time <= time_end)
           F_monoterpene = 0.0_dp
         end if
 
-        !  write(*, *) layer, F_isoprene, F_monoterpene
-
         do i = 1,nz 
           do j = 1,neq
              if (cons(j,i) .LT. 0.0) then
@@ -225,8 +228,7 @@ do while (time <= time_end)
 
         call chemistry_step(cons(1:neq, layer), time, time+dt_chem, O2(layer), N2(layer), Mair(layer), &
                             H2O(layer), temp(layer), get_exp_coszen(time, daynumber, latitude), &
-                            F_monoterpene , F_isoprene)
-        ! write(*, *) cons(3,layer)
+                            F_monoterpene , F_isoprene, CS_H2SO4, CS_ELVOC)
 
       end do
     end if  ! every dt_chem
@@ -259,7 +261,24 @@ do while (time <= time_end)
   if ( use_aerosol .and. time >= time_start_aerosol ) then
     if ( mod( nint((time - time_start_aerosol)*1000.0d0), nint(dt_aero*1000.0d0) ) == 0 ) then
       ! Nucleation, condensation, coagulation and deposition of particles
+      
+      call Nucleation(particle_conc, particle_volume, nucleation_coef, cond_vapour, dt_aero)
+
+      do layer = 2, nz-1
+        call Coagulation(dt_aero, particle_conc, diameter, temp(layer), pres(layer), particle_mass)
+
+        call Condensation(dt_aero, temp(layer), pres(layer), mass_accomm, molecular_mass, &
+                        molecular_volume, molar_mass, molecular_dia, particle_mass, particle_volume, &
+                        particle_conc, diameter, cond_vapour, CS_H2SO4, CS_ELVOC)
+
+
+        PN(layer) = sum(particle_conc)*1D-6                 ! [# cm-3], total particle number concentration
+        PM(layer) = sum(particle_conc*particle_mass)*1D9     ! [ug m-3], total particle mass concentration
+        PV(layer) = sum(particle_conc*particle_volume)*1D9*1000
+      end do
     end if
+
+    ! //TODO DEFINE CS, COND_VAPOUR IN MAIN AND SPECIFY THEM FOR DIFFERENT LAYERS
 
     ! Trick to make bottom flux zero
 
@@ -335,6 +354,9 @@ subroutine open_files()
   open(21,file=trim(adjustl(output_dir))//'/HO2.dat',status='replace',action='write')
   open(22,file=trim(adjustl(output_dir))//'/H2SO4.dat',status='replace',action='write')
   open(23,file=trim(adjustl(output_dir))//'/ELVOC.dat',status='replace',action='write')
+  open(24,file=trim(adjustl(output_dir))//'/PM.dat',status='replace',action='write')
+  open(25,file=trim(adjustl(output_dir))//'/PN.dat',status='replace',action='write')
+  open(26,file=trim(adjustl(output_dir))//'/PV.dat',status='replace',action='write')
 end subroutine open_files
 
 
@@ -374,6 +396,9 @@ subroutine write_files(time)
   write(21, outfmt_level     ) cons(8, :)
   write(22, outfmt_level     ) cons(21, :)
   write(23, outfmt_level     ) cons(25, :)
+  write(24, outfmt_level     ) PM
+  write(25, outfmt_level     ) PN
+  write(26, outfmt_level     ) PV
 end subroutine write_files
 
 

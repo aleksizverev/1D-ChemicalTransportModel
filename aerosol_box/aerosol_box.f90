@@ -56,7 +56,7 @@ open(102,file=trim(adjustl(output_dir))//'/PN.dat',status='replace',action='writ
 open(103,file=trim(adjustl(output_dir))//'/PM.dat',status='replace',action='write')
 open(104,file=trim(adjustl(output_dir))//'/time.dat',status='replace',action='write')
 open(105,file=trim(adjustl(output_dir))//'/PV.dat',status='replace',action='write')
-write(100,*) diameter
+write(100,'(es25.16e3)') diameter
 write(101,*) particle_conc
 write(102,*) PN
 write(103,*) PM
@@ -92,7 +92,7 @@ do while (time < time_end) ! Main program time step loop
   end if
   
   if (use_coagulation) then
-  !!! Calculate coagulation losses here !!!
+    call Coagulation(timestep, particle_conc, diameter, temperature, pressure, particle_mass)
   end if
   
   if (use_condensation) then
