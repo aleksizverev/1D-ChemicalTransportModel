@@ -5,10 +5,9 @@ IMPLICIT NONE
 PRIVATE
 
 ! PUBLIC :: pi
-PUBLIC :: cond_vapour, diameter, particle_mass, particle_volume, particle_conc, &
+PUBLIC :: nr_cond, nr_bins, diameter, particle_mass, particle_volume, &
           particle_density, nucleation_coef, molecular_mass, molar_mass, &
-          molecular_volume, molecular_dia, mass_accomm, &
-          PN, PM, PV, CS_H2SO4, CS_ELVOC
+          molecular_volume, molecular_dia, mass_accomm
 PUBLIC :: Aerosol_init, Nucleation, Condensation, Coagulation, dry_dep_velocity
 
 !====================== Definition of variables =====================================================================!
@@ -30,7 +29,6 @@ integer, parameter ::  nz = 50  ! [-], number of height levels
 
 REAL(dp), DIMENSION(nr_bins) :: diameter       , &  ! Diameter of each size bin
                                 particle_mass  , &  ! mass of one particle in each size bin
-                                particle_conc  , &  ! number concentration in each size bin
                                 particle_volume, &  ! volume concentration in each size bin
                                 coag_loss      , &  ! coagulation loss rate of particles in each size bin
                                 v_dep               ! Dry deposition velocity of particles
@@ -38,12 +36,10 @@ REAL(dp), DIMENSION(nr_bins) :: diameter       , &  ! Diameter of each size bin
 REAL(dp), DIMENSION(nr_cond) :: molecular_mass  , &  ! molecular mass of the condensing vapours [kg/#]
                                 molecular_volume, &  ! Molecule volume of condensable vapours [m^3]
                                 molecular_dia   , &  ! Molecule diameter of condensable vapours [m]
-                                molar_mass      , &  ! Molar mass of condensable vapours [kg/m^3]
-                                cond_vapour          ! Concentration of condensable vapours [molec/m^3]
+                                molar_mass           ! Molar mass of condensable vapours [kg/m^3]
+                                
 
 REAL(dp), DIMENSION(nr_cond) :: Cond_sink = 1.0d-3  ! Assumed initial condensation sink of vapours [s^-1]
-
-REAL(dp), DIMENSION(nz) :: PN, PM, PV  ! Total particle number [# m-3] and mass concentration [kg m-3]
 
 REAL(dp) :: vd_SO2, vd_O3, vd_HNO3  ! [m s-1], dry deposition velocity of SO2, O3 & HNO3
 
@@ -52,8 +48,6 @@ REAL(dp) :: particle_density, &  ! [kg]
             mass_accomm          ! mass accomodation coefficient
 
 REAL(dp) :: nucleation_rate  ! [# m-3 s-1]
-
-REAL(dp) :: CS_H2SO4, CS_ELVOC
 
 CONTAINS
 

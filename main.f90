@@ -130,14 +130,26 @@ integer :: i, j, layer !  used for loops
 real(dp) :: F_monoterpene, F_isoprene, C_L, C_T
 
 !-----------------------------------------------------------------------------------------
+! Aerosol variables
+!-----------------------------------------------------------------------------------------
+
+real(dp), dimension(nz) :: CS_H2SO4, CS_ELVOC
+real(dp), dimension (nz, nr_cond) :: cond_vapour          ! Concentration of condensable vapours [molec/m^3]
+REAL(dp), DIMENSION(nz) :: PN, PM, PV  ! Total particle number [# m-3] and mass concentration [kg m-3]
+REAL(dp), DIMENSION(nz, nr_bins) :: particle_conc   ! number concentration in each size bin
+
+!-----------------------------------------------------------------------------------------
 ! Initialization
 !-----------------------------------------------------------------------------------------
 
 call time_init()                 ! initialize time
 call meteorology_init()          ! initialize meteorology
-call Aerosol_init(diameter, particle_mass, particle_volume, particle_conc, &
-                  particle_density, nucleation_coef, molecular_mass, molar_mass, &
-                  molecular_volume, molecular_dia, mass_accomm)
+
+do i = 1, nz
+  call Aerosol_init(diameter, particle_mass, particle_volume, particle_conc(i, :), &
+                    particle_density, nucleation_coef, molecular_mass, molar_mass, &
+                    molecular_volume, molecular_dia, mass_accomm)
+end do
 call open_files()        ! open output files
 call write_files(time)   ! write initial values
 
@@ -228,7 +240,7 @@ do while (time <= time_end)
 
         call chemistry_step(cons(1:neq, layer), time, time+dt_chem, O2(layer), N2(layer), Mair(layer), &
                             H2O(layer), temp(layer), get_exp_coszen(time, daynumber, latitude), &
-                            F_monoterpene , F_isoprene, CS_H2SO4, CS_ELVOC)
+                            F_monoterpene , F_isoprene, CS_H2SO4(layer), CS_ELVOC(layer))
 
       end do
     end if  ! every dt_chem
@@ -262,19 +274,19 @@ do while (time <= time_end)
     if ( mod( nint((time - time_start_aerosol)*1000.0d0), nint(dt_aero*1000.0d0) ) == 0 ) then
       ! Nucleation, condensation, coagulation and deposition of particles
       
-      call Nucleation(particle_conc, particle_volume, nucleation_coef, cond_vapour, dt_aero)
-
       do layer = 2, nz-1
-        call Coagulation(dt_aero, particle_conc, diameter, temp(layer), pres(layer), particle_mass)
+        call Nucleation(particle_conc(layer, :), particle_volume, nucleation_coef, cond_vapour(layer, :), dt_aero)
+
+        call Coagulation(dt_aero, particle_conc(layer, :), diameter, temp(layer), pres(layer), particle_mass)
 
         call Condensation(dt_aero, temp(layer), pres(layer), mass_accomm, molecular_mass, &
                         molecular_volume, molar_mass, molecular_dia, particle_mass, particle_volume, &
-                        particle_conc, diameter, cond_vapour, CS_H2SO4, CS_ELVOC)
+                        particle_conc(layer, :), diameter, cond_vapour(layer, :), CS_H2SO4(layer), CS_ELVOC(layer))
 
 
-        PN(layer) = sum(particle_conc)*1D-6                 ! [# cm-3], total particle number concentration
-        PM(layer) = sum(particle_conc*particle_mass)*1D9     ! [ug m-3], total particle mass concentration
-        PV(layer) = sum(particle_conc*particle_volume)*1D9*1000
+        PN(layer) = sum(particle_conc(layer, :))*1D-6                 ! [# cm-3], total particle number concentration
+        PM(layer) = sum(particle_conc(layer, :)*particle_mass)*1D9     ! [ug m-3], total particle mass concentration
+        PV(layer) = sum(particle_conc(layer, :)*particle_volume)*1D9*1000
       end do
     end if
 
