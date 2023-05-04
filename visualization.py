@@ -1,7 +1,8 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 
-#Emissions ------------------------------------------------------
+# Emissions -----------------------------------------------------
 # def_emissions_isoprene = pd.read_csv('output/F_isoprene.dat')
 # def_emissions_monoterpene = pd.read_csv('output/F_monoterpene.dat')
 # plt.plot(def_emissions_isoprene)
@@ -23,6 +24,7 @@ ax2.plot(df_alpha.iloc[:, 5][70:])
 ax2.set_title("Alphapinene")
 
 
+# Chemistry -----------------------------------------------------
 plt.figure(2)
 df_OH = pd.read_csv('output/OH.dat', delimiter='\s+')
 ax3 = plt.subplot(221)
@@ -47,6 +49,43 @@ ax6 = plt.subplot(224)
 ax6.plot(df_elvoc.iloc[:, 1][70:])
 ax6.plot(df_elvoc.iloc[:, 5][70:])
 ax6.set_title("ELVOC")
+# ----------------------------------------------------------------
 
+
+# Aerosol --------------------------------------------------------
+plt.figure(3)
+df_PN = pd.read_csv('output/PN.dat', delimiter='\s+')
+ax7 = plt.subplot(111)
+ax7.plot(df_PN.iloc[:, 1][72:])
+ax7.grid(True, which="both")
+ax7.minorticks_on()
+ax7.set_ylabel('Total PN (cm^-3)')
+
+plt.figure(4)
+df_PM = pd.read_csv('output/PM.dat', delimiter='\s+')
+ax8 = plt.subplot(111)
+ax8.plot(df_PM.iloc[:, 1][72:])
+ax8.grid(True, which="both")
+ax8.minorticks_on()
+ax8.set_ylabel('Total PM')
+
+plt.figure(5)
+df_particle_conc = pd.read_csv('output/particle_conc.dat', delimiter='\s+')
+df_diam = pd.read_csv('output/diameter.dat') * 1e9
+ax9 = plt.subplot(111)
+ax9.loglog(df_diam, df_particle_conc.iloc[119][0:99]*1e-6)
+ax9.grid(True, which="both")
+ax9.set_ylabel('\delta N (cm^-3)')
+
+
+fig10 = plt.figure(6)
+ax10 = plt.subplot(111)
+df_time = pd.read_csv('output/time.dat')
+X,Y = np.meshgrid(df_time[70:], df_diam)
+
+p = ax10.pcolor(X, Y, np.log10((df_particle_conc.iloc[71:, 0:98]*1e-6).T), vmin=0)
+ax10.set_yscale('log')
+cb = fig10.colorbar(p, ax=ax10)
+# #----------------------------------------------------------------
 
 plt.show()

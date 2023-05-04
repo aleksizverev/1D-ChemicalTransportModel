@@ -78,7 +78,7 @@ real(dp), parameter, dimension(nz) :: &
 real(dp), parameter :: hc = 10.0_dp  ! [m], canopy height
 
 ! Chemistry constants
-real(dp), dimension(neq, nz) :: cons, cons_tmp !//TODO
+real(dp), dimension(neq, nz) :: cons, cons_tmp 
 
 ! Atmospheric oxygen, N2 and H2O are kept constant:
 real(dp), dimension(nz) :: Mair                                    ! Air molecules concentration [molecules/cm3]
@@ -90,6 +90,7 @@ real(dp), dimension(nz) :: H2O                                     ! Water molec
 ! Time variables
 !-----------------------------------------------------------------------------------------
 integer, parameter :: one_hour = 60*60  ! [s], one hour in seconds
+real(dp), parameter :: one_day  = 86400.0d0  ! seconds of one day
 
 real(dp) :: time                  ! [s], current time
 real(dp) :: time_start, time_end  ! [s], start and end time
@@ -136,7 +137,7 @@ real(dp) :: F_monoterpene, F_isoprene, C_L, C_T
 real(dp), dimension(nz) :: CS_H2SO4, CS_ELVOC
 real(dp), dimension (nz, nr_cond) :: cond_vapour          ! Concentration of condensable vapours [molec/m^3]
 REAL(dp), DIMENSION(nz) :: PN, PM, PV  ! Total particle number [# m-3] and mass concentration [kg m-3]
-REAL(dp), DIMENSION(nz, nr_bins) :: particle_conc   ! number concentration in each size bin
+REAL(dp), DIMENSION(nz, nr_bins) :: particle_conc, particle_conc_tmp   ! number concentration in each size bin
 
 !-----------------------------------------------------------------------------------------
 ! Initialization
@@ -157,11 +158,12 @@ cons = 0.0d0
 cons_tmp = 0.0d0
 CS_H2SO4 = 1d-3
 CS_ELVOC = 1d-3
+particle_conc_tmp = 0.0d0
 
 !-----------------------------------------------------------------------------------------
 ! Start main loop
 !-----------------------------------------------------------------------------------------
-do while (time <= time_end)
+do while (time <= time_end)  
   !---------------------------------------------------------------------------------------
   ! Meteorology
   !---------------------------------------------------------------------------------------
@@ -221,6 +223,8 @@ do while (time <= time_end)
       cons(9, :)  = 100.0d0  * Mair * ppb     ! CO
       cons(11, :) = 1759.0d0 * Mair * ppb     ! CH4
       cons(20, :) = 0.5d0    * Mair * ppb     ! SO2
+      ! cons(21, :) = cond_vapour(:, 1) * 1e-6
+      ! cons(25, :) = cond_vapour(:, 2) * 1e-6
 
       ! Solve chemical equations for each layer except boundaries //TODO 
       do layer = 2, nz - 1
@@ -272,35 +276,52 @@ do while (time <= time_end)
   ! Compute aerosol part every dt_aero, multiplying 1000 to convert s to ms to make mod easier
   if ( use_aerosol .and. time >= time_start_aerosol ) then
     if ( mod( nint((time - time_start_aerosol)*1000.0d0), nint(dt_aero*1000.0d0) ) == 0 ) then
+      cond_vapour(:, 1) = cons(21, :)*1e6
+      cond_vapour(:, 2) = cons(25, :)*1e6    
       ! Nucleation, condensation, coagulation and deposition of particles
       
       do layer = 2, nz-1
         call Nucleation(particle_conc(layer, :), particle_volume, nucleation_coef, cond_vapour(layer, :), dt_aero)
 
-        call Coagulation(dt_aero, particle_conc(layer, :), diameter, temp(layer), pres(layer), particle_mass)
-
         call Condensation(dt_aero, temp(layer), pres(layer), mass_accomm, molecular_mass, &
                         molecular_volume, molar_mass, molecular_dia, particle_mass, particle_volume, &
                         particle_conc(layer, :), diameter, cond_vapour(layer, :), CS_H2SO4(layer), CS_ELVOC(layer))
 
-
-        PN(layer) = sum(particle_conc(layer, :))*1D-6                 ! [# cm-3], total particle number concentration
-        PM(layer) = sum(particle_conc(layer, :)*particle_mass)*1D9     ! [ug m-3], total particle mass concentration
-        PV(layer) = sum(particle_conc(layer, :)*particle_volume)*1D9*1000
+        call Coagulation(dt_aero, particle_conc(layer, :), diameter, temp(layer), pres(layer), particle_mass)
       end do
     end if
 
-    ! //TODO DEFINE CS, COND_VAPOUR IN MAIN AND SPECIFY THEM FOR DIFFERENT LAYERS
-
     ! Trick to make bottom flux zero
-
-    ! Concentrations can not be lower than 0 [molec m-3]
+    particle_conc(1, :) = particle_conc(2, :)
 
     ! Mixing of aerosol particles
+    do i = 2, nz-1
+      do j = 1, nr_bins
+      particle_conc_tmp(i, j) = particle_conc(i, j)  +   dt*(K_h(i) * (particle_conc(i+1, j) - particle_conc(i, j))/(hh(i+1) - hh(i)) - & 
+                                             K_h(i-1) * (particle_conc(i, j) - particle_conc(i-1, j))/(hh(i) - hh(i-1))) / & 
+                                            ((hh(i+1)-hh(i-1))*0.5)
+      end do
+    end do 
+    particle_conc = particle_conc_tmp
 
     ! Set the constraints above again for output
+    particle_conc(1, :) = particle_conc(2, :)
+
+    ! Concentrations can not be lower than 0 [molec m-3]
+    do i = 1,nz 
+      do j = 1, nr_bins
+         if (particle_conc(i,j) .LT. 0.0) then
+            particle_conc(i,j) = 0.0_dp
+         endif
+        enddo
+    enddo
 
     ! Update related values, e.g., total number concentration, total mass concentration
+    do layer = 2, nz-1
+      PN(layer) = sum(particle_conc(layer, :))*1D-6                 ! [# cm-3], total particle number concentration
+      PM(layer) = sum(particle_conc(layer, :)*particle_mass)*1D9     ! [ug m-3], total particle mass concentration
+      PV(layer) = sum(particle_conc(layer, :)*particle_volume)*1D9*1000
+    end do
 
   end if
 
@@ -369,6 +390,8 @@ subroutine open_files()
   open(24,file=trim(adjustl(output_dir))//'/PM.dat',status='replace',action='write')
   open(25,file=trim(adjustl(output_dir))//'/PN.dat',status='replace',action='write')
   open(26,file=trim(adjustl(output_dir))//'/PV.dat',status='replace',action='write')
+  ! open(27,file=trim(adjustl(output_dir))//'/diameter.dat',status='replace',action='write')
+  open(28,file=trim(adjustl(output_dir))//'/particle_conc.dat',status='replace',action='write')
 end subroutine open_files
 
 
@@ -411,6 +434,8 @@ subroutine write_files(time)
   write(24, outfmt_level     ) PM
   write(25, outfmt_level     ) PN
   write(26, outfmt_level     ) PV
+  ! write(27,'(es25.16e3)'     ) diameter
+  write(28, *                ) particle_conc(2, :)    
 end subroutine write_files
 
 
@@ -436,6 +461,11 @@ subroutine close_files()
   close(21)
   close(22)
   close(23)
+  close(24)
+  close(25)
+  close(26)
+  ! close(27)
+  close(28)
 end subroutine close_files
 
 

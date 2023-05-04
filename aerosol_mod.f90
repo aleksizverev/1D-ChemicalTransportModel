@@ -128,7 +128,7 @@ SUBROUTINE Condensation(timestep, temperature, pressure, mass_accomm, molecular_
                                               molecular_volume, molar_mass
   REAL(dp), INTENT(IN) :: timestep, temperature, pressure, mass_accomm
 
-  REAL(dp), DIMENSION(nr_bins), INTENT(INOUT) :: particle_conc
+  REAL(dp), DIMENSION(nr_bins) :: particle_conc
 
   REAL(dp), DIMENSION(2), INTENT(IN) :: cond_vapour  ! [molec m-3], condensing vapour concentrations, which is H2SO4 and organics (ELVOC)
 
