@@ -55,8 +55,8 @@ real(dp), parameter :: ppb = 1e-9_dp
 real(dp), parameter :: ug = 10.0d0, vg = 0.0d0  ! [m s-1], geostrophic wind
 
 ! Latitude and longitude of Hyytiala
-real(dp), parameter :: latitude_deg  = 61.8455d0  ! [degN]
-real(dp), parameter :: longitude_deg = 24.2833d0  ! [degE]
+real(dp), parameter :: latitude_deg  = 56.1d0  ! [degN]
+real(dp), parameter :: longitude_deg = 13.42d0 ! [degE]
 real(dp), parameter :: latitude      = latitude_deg  * PI/180.0d0  ! [rad]
 real(dp), parameter :: longitude     = longitude_deg * PI/180.0d0  ! [rad]
 
@@ -217,12 +217,12 @@ do while (time <= time_end)
       N2   = 0.78d0*Mair                     ! Nitrogen concentration [molecules/cm3]
       H2O  = 1.0D16                          ! Water molecules [molecules/cm3]
       ! Initial state for concentrations
-      cons(1, :)  = 24.0d0   * Mair * ppb     ! O3 concentration
+      cons(1, :)  = 40.0d0   * Mair * ppb     ! O3 concentration
       cons(5, :)  = 0.2d0    * Mair * ppb     ! NO2
       cons(6, :)  = 0.07d0   * Mair * ppb     ! NO
-      cons(9, :)  = 100.0d0  * Mair * ppb     ! CO
+      cons(9, :)  = 200.0d0  * Mair * ppb     ! CO
       cons(11, :) = 1759.0d0 * Mair * ppb     ! CH4
-      cons(20, :) = 0.5d0    * Mair * ppb     ! SO2
+      cons(20, :) = 2.0d0    * Mair * ppb     ! SO2
       ! cons(21, :) = cond_vapour(:, 1) * 1e-6
       ! cons(25, :) = cond_vapour(:, 2) * 1e-6
 
@@ -489,14 +489,14 @@ subroutine time_init()
   dt_output = 3600.0d0
 
   ! Day number
-  daynumber_start = 31+28+31+30+31+30+10  ! day is July 10th, 2011
+  daynumber_start = 31+28+31+6  ! day is April 6th
   daynumber       = daynumber_start
 
   ! Start time for each process
-  time_start_emission   = 3*24*one_hour
+  time_start_emission   = 4.625d0*24*one_hour
   time_start_chemistry  = 3*24*one_hour
   time_start_deposition = 3*24*one_hour
-  time_start_aerosol    = 3*24*one_hour
+  time_start_aerosol    = 4.0d0*24*one_hour
 
   ! Loop number
   counter = 0
@@ -522,8 +522,8 @@ subroutine meteorology_init()
   K_h = 0.0d0
 
   ! Potential temperature
-  theta     = 273.15d0 + 25.0d0
-  theta(nz) = 273.15d0 + 30.0d0
+  theta     = 273.15d0 + 0.0d0                   ! 273.15d0 + 25.0d0
+  theta(nz) = 273.15d0 + 5.0d0                   ! 273.15d0 + 30.0d0
 
   ! Air temperature and pressure
   temp = theta - (grav/Cp)*hh
@@ -556,7 +556,7 @@ subroutine surface_values(temperature, time)
   ! Only when called for the first time, read in data from file
   ! With this trick, we don't need to open the file in the main program
   IF (first_time) THEN
-     open(30, file=trim(adjustl(input_dir))//'/hyytiala_20110710-t_h2o.dat', status='old')
+     open(30, file=trim(adjustl(input_dir))//'/hyltemossa_2018_4_06_t_h2o.dat', status='old')
      read(30, *) surface_data
      temperature_data(1:50) = surface_data(7,1:50) ! in Celcius
      first_time = .false.
