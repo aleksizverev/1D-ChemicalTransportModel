@@ -346,11 +346,11 @@ end do
 ! Finalization
 !-----------------------------------------------------------------------------------------
 ! Close all the opened files
+write(27,'(es25.16e3)'     ) diameter
 call close_files()
 
 ! Count total time steps
 write(*,*) counter,'time steps'
-
 
 contains
 
@@ -390,8 +390,10 @@ subroutine open_files()
   open(24,file=trim(adjustl(output_dir))//'/PM.dat',status='replace',action='write')
   open(25,file=trim(adjustl(output_dir))//'/PN.dat',status='replace',action='write')
   open(26,file=trim(adjustl(output_dir))//'/PV.dat',status='replace',action='write')
-  ! open(27,file=trim(adjustl(output_dir))//'/diameter.dat',status='replace',action='write')
+  open(27,file=trim(adjustl(output_dir))//'/diameter.dat',status='replace',action='write')
   open(28,file=trim(adjustl(output_dir))//'/particle_conc.dat',status='replace',action='write')
+  open(29,file=trim(adjustl(output_dir))//'/CS_H2SO4.dat',status='replace',action='write')
+  open(30,file=trim(adjustl(output_dir))//'/CS_ELVOC.dat',status='replace',action='write')
 end subroutine open_files
 
 
@@ -434,8 +436,9 @@ subroutine write_files(time)
   write(24, outfmt_level     ) PM
   write(25, outfmt_level     ) PN
   write(26, outfmt_level     ) PV
-  ! write(27,'(es25.16e3)'     ) diameter
-  write(28, *                ) particle_conc(2, :)    
+  write(28, *                ) particle_conc(2, :)
+  write(29, outfmt_level) CS_H2SO4
+  write(30, outfmt_level) CS_ELVOC
 end subroutine write_files
 
 
@@ -464,8 +467,10 @@ subroutine close_files()
   close(24)
   close(25)
   close(26)
-  ! close(27)
+  close(27)
   close(28)
+  close(29)
+  close(30)
 end subroutine close_files
 
 
