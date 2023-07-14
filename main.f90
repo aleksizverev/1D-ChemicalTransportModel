@@ -226,7 +226,7 @@ do while (time <= time_end)
       ! cons(21, :) = cond_vapour(:, 1) * 1e-6
       ! cons(25, :) = cond_vapour(:, 2) * 1e-6
 
-      ! Solve chemical equations for each layer except boundaries //TODO 
+      ! Solve chemical equations for each layer except boundaries
       do layer = 2, nz - 1
 
         if (layer .GT. 2) then 
@@ -481,8 +481,8 @@ subroutine time_init()
   time       = time_start
 
   ! Time steps
-  dt        = 0.5d0
-  dt_emis   = 0.5d0
+  dt        = 0.5d0 !normally - 0.5
+  dt_emis   = 0.5d0 !normally - 0.5
   dt_chem   = 10.0d0
   dt_depo   = 10.0d0
   dt_aero   = 10.0d0
@@ -559,6 +559,7 @@ subroutine surface_values(temperature, time)
      open(30, file=trim(adjustl(input_dir))//'/hyytiala_20110710-t_h2o.dat', status='old')
      read(30, *) surface_data
      temperature_data(1:50) = surface_data(7,1:50) ! in Celcius
+!     temperature_data(1:50) = 40.0
      first_time = .false.
   end IF
 
@@ -566,6 +567,8 @@ subroutine surface_values(temperature, time)
   time24plus15 = time24h + 15*60 ! time since 23:45 previous day
   time30min = modulo(time24plus15, seconds_in_30min)
   index = 1 + floor(time24plus15/seconds_in_30min)
+
+!  write(*, *) index
 
   temp1 = temperature_data(index)
   temp2 = temperature_data(index + 1)
